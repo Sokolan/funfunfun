@@ -125,8 +125,9 @@ def _find_free_port(host: str, start: int, attempts: int = 20) -> int:
     """
     import socket
     for port in range(start, start + attempts):
+        # No SO_REUSEADDR here: on Windows it lets a bind succeed on a port
+        # that's already in use, which would defeat the in-use check.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 s.bind((host, port))
                 return port

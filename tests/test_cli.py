@@ -7,14 +7,13 @@ def test_find_free_port_returns_open_port():
     port = _find_free_port("127.0.0.1", 8765)
     # we can actually bind what it returned
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(("127.0.0.1", port))
 
 
 def test_find_free_port_skips_busy_port():
     # Occupy a port, then ask starting from it; must get a different one.
+    # No SO_REUSEADDR so the port is genuinely unavailable on every OS.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
-        busy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         busy.bind(("127.0.0.1", 0))
         busy.listen(1)
         taken = busy.getsockname()[1]
