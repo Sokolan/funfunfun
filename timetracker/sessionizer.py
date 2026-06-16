@@ -107,6 +107,29 @@ def sessionize(events: list[sqlite3.Row], classifier: Classifier,
     return sessions
 
 
+def start_periodic_rebuild(config: Config, interval_seconds: int = 60):
+    """Rebuild sessions now and every `interval_seconds` in a daemon thread.
+
+    The collector only writes raw events; this keeps the `sessions` table (what
+    the dashboard reads) current without the user running `rebuild` by hand.
+    Returns the started thread.
+    """
+    import threading
+    import time
+
+    def _loop():
+        while True:
+            try:
+                rebuild_sessions(config)
+            except Exception as exc:  # never let the loop die
+                print(f"[rebuild] error: {exc!r}", flush=True)
+            time.sleep(interval_seconds)
+
+    t = threading.Thread(target=_loop, daemon=True)
+    t.start()
+    return t
+
+
 def rebuild_sessions(config: Config) -> int:
     """Recompute the sessions table from events. Returns session count."""
     conn = get_conn(config.db_path)
@@ -120,6 +143,8 @@ def rebuild_sessions(config: Config) -> int:
         max_gap = max(config.idle_threshold_seconds, config.poll_seconds * 3)
         sessions = sessionize(events, classifier, config.idle_threshold_seconds, max_gap)
 
+        # Atomic swap so concurrent dashboard reads never see an empty table.
+        conn.execute("BEGIN IMMEDIATE")
         conn.execute("DELETE FROM sessions")
         conn.executemany(
             "INSERT INTO sessions(start_ts, end_ts, dominant_app, mode, "
@@ -131,6 +156,7 @@ def rebuild_sessions(config: Config) -> int:
                 for s in sessions
             ],
         )
+        conn.execute("COMMIT")
         return len(sessions)
     finally:
         conn.close()

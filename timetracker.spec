@@ -1,18 +1,19 @@
 # PyInstaller spec — builds a single timetracker.exe.
 # Build on Windows:  pyinstaller timetracker.spec --noconfirm
 # (PyInstaller is not a cross-compiler: run it on the OS you want a binary for.)
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 # uvicorn/fastapi/starlette load many pieces by string at runtime — pull them all.
 hidden = (
     collect_submodules("uvicorn")
     + collect_submodules("fastapi")
     + collect_submodules("starlette")
-    + ["win32timezone"]  # pywin32 sometimes needs this explicitly
+    + ["win32timezone", "tzdata"]  # pywin32 + zoneinfo's tz database on Windows
 )
 
-# Bundle the dashboard and the default config alongside the code.
-datas = [("static", "static"), ("config.toml", ".")]
+# Bundle the dashboard, the default config, and the IANA tz database (tzdata is
+# a data-only package, so its files must be collected explicitly).
+datas = [("static", "static"), ("config.toml", ".")] + collect_data_files("tzdata")
 
 a = Analysis(
     ["run_timetracker.py"],

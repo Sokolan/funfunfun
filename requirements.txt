@@ -3,6 +3,8 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 psutil>=5.9
 tomli>=2.0 ; python_version < "3.11"
+# Windows has no system IANA tz database; zoneinfo needs this.
+tzdata ; sys_platform == "win32"
 
 # Windows collector backend
 pywin32>=306 ; sys_platform == "win32"

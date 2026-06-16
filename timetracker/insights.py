@@ -7,7 +7,7 @@ UTC to the configured local timezone before bucketing by hour/weekday.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
 from .config import Config
@@ -16,14 +16,16 @@ from .db import get_conn
 _WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
-def _tz(name: str) -> ZoneInfo:
+def _tz(name: str) -> tzinfo:
+    # On Windows, zoneinfo has no tz database unless the `tzdata` package is
+    # present; fall back to plain UTC (timezone.utc) which never needs data.
     try:
         return ZoneInfo(name)
     except Exception:
-        return ZoneInfo("UTC")
+        return timezone.utc
 
 
-def _local(ts: float, tz: ZoneInfo) -> datetime:
+def _local(ts: float, tz: tzinfo) -> datetime:
     return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(tz)
 
 

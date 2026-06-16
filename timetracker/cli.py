@@ -92,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "serve":
         import uvicorn
+        from .sessionizer import start_periodic_rebuild
         from .web import create_app
+        start_periodic_rebuild(config)
         app = create_app(config)
         print(f"serving on http://{args.host}:{args.port}")
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
@@ -131,6 +133,10 @@ def _run_app(config, host: str, port: int, open_browser: bool = True,
     from .web import create_app
 
     init_db(config.db_path)
+
+    # Keep the sessions table (what the dashboard reads) fresh from raw events.
+    from .sessionizer import start_periodic_rebuild
+    start_periodic_rebuild(config)
 
     if with_collector:
         from .collector import run_collector
