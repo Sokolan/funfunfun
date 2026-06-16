@@ -32,10 +32,23 @@ jobs:
       - name: Build exe
         run: pyinstaller timetracker.spec --noconfirm
 
-      - name: Smoke test the exe
+      - name: Smoke test the exe (CLI + web endpoints)
+        shell: pwsh
         run: |
           .\dist\timetracker.exe --help
-          .\dist\timetracker.exe seed-fake --config config.toml --days 2
+          .\dist\timetracker.exe seed-fake --days 3
+          $p = Start-Process -FilePath .\dist\timetracker.exe `
+               -ArgumentList "serve","--port","8765" -PassThru
+          Start-Sleep -Seconds 10
+          try {
+            foreach ($path in @("/api/insights?days=28", "/api/sessions", "/api/digest", "/")) {
+              $r = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8765$path"
+              if ($r.StatusCode -ne 200) { throw "$path -> $($r.StatusCode)" }
+              Write-Host "OK $path"
+            }
+          } finally {
+            Stop-Process -Id $p.Id -Force
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
