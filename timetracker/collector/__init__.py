@@ -18,8 +18,12 @@ from .backends import get_backend
 __all__ = ["run_collector", "get_backend"]
 
 
-def run_collector(config: Config) -> None:
-    """Run the sampling loop until interrupted (Ctrl-C / SIGTERM)."""
+def run_collector(config: Config, install_signal_handlers: bool = True) -> None:
+    """Run the sampling loop until interrupted (Ctrl-C / SIGTERM).
+
+    When run in a background thread (e.g. the all-in-one `start` mode) pass
+    install_signal_handlers=False: signal.signal() only works on the main thread.
+    """
     init_db(config.db_path)
     backend = get_backend(config.backend)
     host = socket.gethostname()
@@ -30,11 +34,12 @@ def run_collector(config: Config) -> None:
     def _stop(*_a):
         running["on"] = False
 
-    signal.signal(signal.SIGINT, _stop)
-    try:
-        signal.signal(signal.SIGTERM, _stop)
-    except (ValueError, AttributeError):
-        pass  # SIGTERM not available on some platforms/threads
+    if install_signal_handlers:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                signal.signal(sig, _stop)
+            except (ValueError, AttributeError, OSError):
+                pass  # not available on this platform/thread
 
     print(
         f"[collector] backend={backend.name} host={host} "

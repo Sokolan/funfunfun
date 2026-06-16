@@ -1,14 +1,20 @@
 """Command-line entrypoint.
 
 Usage:
+  python -m timetracker.cli                 # default: collector + dashboard + browser
+  python -m timetracker.cli start [...]     # same, with options
   python -m timetracker.cli init-db
   python -m timetracker.cli collect
   python -m timetracker.cli rebuild
   python -m timetracker.cli serve [--host H] [--port P]
   python -m timetracker.cli digest [--days N] [--html OUT.html]
-  python -m timetracker.cli seed-fake [--minutes N]   # dev: generate test data
+  python -m timetracker.cli seed-fake [--days N]   # dev: generate test data
 
 Global: --config PATH to layer an extra TOML file over the defaults.
+
+Running with no command (e.g. double-clicking the .exe) is the same as `start`:
+it creates the DB, runs the collector in the background, serves the dashboard,
+and opens it in your browser.
 """
 from __future__ import annotations
 
@@ -25,11 +31,20 @@ def _add_config_arg(p: argparse.ArgumentParser) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="timetracker")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub = parser.add_subparsers(dest="cmd")  # no command => `start`
 
     for name in ("init-db", "collect", "rebuild"):
         sp = sub.add_parser(name)
         _add_config_arg(sp)
+
+    sp_start = sub.add_parser("start", help="collector + dashboard + open browser")
+    _add_config_arg(sp_start)
+    sp_start.add_argument("--host", default="127.0.0.1")
+    sp_start.add_argument("--port", type=int, default=8765)
+    sp_start.add_argument("--no-browser", action="store_true",
+                          help="don't open the dashboard in a browser")
+    sp_start.add_argument("--no-collector", action="store_true",
+                          help="serve the dashboard only, don't start the collector")
 
     sp_serve = sub.add_parser("serve")
     _add_config_arg(sp_serve)
@@ -47,7 +62,17 @@ def main(argv: list[str] | None = None) -> int:
                          help="how many past days of synthetic activity to generate")
 
     args = parser.parse_args(argv)
-    config = load_config(args.config)
+    config = load_config(getattr(args, "config", None))
+
+    if args.cmd in (None, "start"):
+        _run_app(
+            config,
+            host=getattr(args, "host", "127.0.0.1"),
+            port=getattr(args, "port", 8765),
+            open_browser=not getattr(args, "no_browser", False),
+            with_collector=not getattr(args, "no_collector", False),
+        )
+        return 0
 
     if args.cmd == "init-db":
         init_db(config.db_path)
@@ -88,6 +113,41 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return 1
+
+
+def _run_app(config, host: str, port: int, open_browser: bool = True,
+             with_collector: bool = True) -> None:
+    """All-in-one: DB + background collector + dashboard + open browser.
+
+    This is what runs when the exe is double-clicked (no subcommand). The
+    collector runs in a daemon thread; the web server runs in the main thread
+    and owns Ctrl-C / window-close shutdown.
+    """
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from .web import create_app
+
+    init_db(config.db_path)
+
+    if with_collector:
+        from .collector import run_collector
+        threading.Thread(
+            target=run_collector,
+            args=(config,),
+            kwargs={"install_signal_handlers": False},
+            daemon=True,
+        ).start()
+
+    url = f"http://{host}:{port}"
+    if open_browser:
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+
+    print(f"timetracker running -> {url}")
+    print("Leave this window open. Close it to stop tracking.", flush=True)
+    uvicorn.run(create_app(config), host=host, port=port, log_level="warning")
 
 
 def _seed_fake(config, days: int) -> None:

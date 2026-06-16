@@ -17,12 +17,18 @@ Actions (Windows runner). Get it from:
 - **Actions tab** → latest `build-windows` run → **Artifacts** → `timetracker-windows`, or
 - a tagged **Release** (push a `v*` tag to attach the exe to a release).
 
-Then run it from a terminal exactly like the Python commands, e.g.:
+**Just double-click `timetracker.exe`.** With no arguments it sets up the
+database, starts the background collector, serves the dashboard, and opens it in
+your browser. A console window stays open — leave it open to keep tracking,
+close it to stop.
+
+Or run individual commands from a terminal:
 
 ```bat
-timetracker.exe init-db
-timetracker.exe collect
-timetracker.exe serve
+timetracker.exe start          :: same as double-click (collector + dashboard)
+timetracker.exe collect        :: collector only
+timetracker.exe serve          :: dashboard only
+timetracker.exe digest         :: print weekly digest
 ```
 
 To edit settings next to the exe, drop a `config.local.toml` beside it.
