@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Local data / config overrides
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+config.local.toml
+digest_*.html
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

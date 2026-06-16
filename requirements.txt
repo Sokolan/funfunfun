@@ -1,0 +1,19 @@
+# Core (all platforms)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+psutil>=5.9
+tomli>=2.0 ; python_version < "3.11"
+
+# Windows collector backend
+pywin32>=306 ; sys_platform == "win32"
+
+# macOS collector backend
+pyobjc-framework-Cocoa>=10.0 ; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0 ; sys_platform == "darwin"
+
+# Linux/X11 collector backend
+python-xlib>=0.33 ; sys_platform == "linux"
+
+# Optional: Google Calendar integration (step 9, not required to run)
+# google-api-python-client
+# google-auth-oauthlib

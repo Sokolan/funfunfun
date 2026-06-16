@@ -1,0 +1,49 @@
+# Default configuration. Copy to config.local.toml to override (gitignored),
+# or pass --config <path> on the CLI. Values here are the shipped defaults.
+
+[storage]
+# Per-machine database. ~ expands to the user's home dir on every OS.
+db_path = "~/.timetracker/activity.db"
+
+[collector]
+# auto = pick backend from the OS. Others: windows | macos | linux | fake
+backend = "auto"
+# How often to sample the foreground window (seconds).
+poll_seconds = 10
+# Idle this long (seconds) ends the current session. Default 5 min.
+idle_threshold_seconds = 300
+
+[display]
+# Used for converting UTC -> local in the UI and digest.
+timezone = "Europe/Berlin"
+
+# Weekly target hours per research mode. Used to flag neglected modes.
+[targets]
+"writing" = 8
+"coding-experiments" = 10
+"reading-papers" = 6
+"reviewing" = 3
+"shallow" = 0
+
+# Classifier rules: regex (matched case-insensitively against
+# "<app> <window_title>") -> mode. First match wins; order matters.
+# Users can add/override rules in config.local.toml.
+[[rules]]
+pattern = "winword|libreoffice writer|\\.docx|\\.tex|overleaf|texstudio|texmaker|obsidian|notion"
+mode = "writing"
+
+[[rules]]
+pattern = "code|vscode|pycharm|jetbrains|terminal|iterm|kitty|alacritty|gnome-terminal|jupyter|rstudio|matlab|\\.py|\\.ipynb"
+mode = "coding-experiments"
+
+[[rules]]
+pattern = "arxiv|\\.pdf|mendeley|zotero|sumatra|preview|acrobat|biorxiv|scholar"
+mode = "reading-papers"
+
+[[rules]]
+pattern = "gitlab|github|pull request|merge request|review|openreview|easychair"
+mode = "reviewing"
+
+[[rules]]
+pattern = "outlook|gmail|mail|teams|zoom|slack|discord|calendar|webex|meet\\."
+mode = "shallow"

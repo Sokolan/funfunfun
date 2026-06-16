@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>timetracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #0f1115; color: #e6e6e6;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #8a8f98; font-size: 13px; margin-bottom: 20px; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .card {
+    background: #171a21; border: 1px solid #232833; border-radius: 10px;
+    padding: 14px 16px; min-width: 150px;
+  }
+  .card .k { color: #8a8f98; font-size: 12px; }
+  .card .v { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel {
+    background: #171a21; border: 1px solid #232833; border-radius: 10px; padding: 16px;
+  }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: #c9cdd6; font-weight: 600; }
+  .headlines { margin-bottom: 20px; }
+  .headlines .pill {
+    display: inline-block; background: #1d2330; border: 1px solid #2b3242;
+    border-radius: 999px; padding: 4px 10px; margin: 0 6px 6px 0; font-size: 13px;
+  }
+  .warn { color: #ffb454; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #232833; }
+  th { color: #8a8f98; font-weight: 500; }
+  select { background: #0f1115; color: #e6e6e6; border: 1px solid #2b3242;
+    border-radius: 6px; padding: 3px 6px; }
+  .frag { color: #ff6b6b; }
+  a { color: #6ea8fe; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <h1>timetracker</h1>
+  <div class="sub" id="sub">loading…</div>
+
+  <div class="cards" id="cards"></div>
+  <div class="headlines" id="headlines"></div>
+
+  <div class="grid">
+    <div class="panel"><h2>Focus by hour of day (deep-work minutes)</h2>
+      <canvas id="hourChart" height="160"></canvas></div>
+    <div class="panel"><h2>Focus by weekday</h2>
+      <canvas id="weekdayChart" height="160"></canvas></div>
+    <div class="panel"><h2>Time by mode</h2>
+      <canvas id="modeChart" height="160"></canvas></div>
+    <div class="panel"><h2><a href="/api/digest" target="_blank">Open weekly digest →</a></h2>
+      <div id="neglected"></div></div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <h2>Recent sessions — fix a mode to teach the classifier</h2>
+    <table>
+      <thead><tr><th>Start</th><th>App</th><th>Mode</th><th>Dur (min)</th>
+        <th>Quality</th><th>Switches</th><th>Idle</th></tr></thead>
+      <tbody id="sessions"></tbody>
+    </table>
+  </div>
+
+<script>
+const fmt = (ts) => new Date(ts * 1000).toLocaleString();
+let MODES = [];
+
+async function j(url, opts) { const r = await fetch(url, opts); return r.json(); }
+
+function card(k, v) { return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+
+function bar(ctx, labels, data, label, color) {
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label, data, backgroundColor: color }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { ticks: { color: '#8a8f98' }, grid: { display: false } },
+                y: { ticks: { color: '#8a8f98' }, grid: { color: '#232833' } } } }
+  });
+}
+
+async function load() {
+  const cfg = await j('/api/config');
+  MODES = cfg.modes;
+  const ins = await j('/api/insights?days=28');
+
+  document.getElementById('sub').textContent =
+    `last ${ins.window_days} days · timezone ${cfg.timezone}`;
+
+  const t = ins.totals;
+  document.getElementById('cards').innerHTML =
+    card('Tracked', t.tracked_hours + ' h') +
+    card('Deep work', t.deep_work_hours + ' h') +
+    card('Sessions', t.session_count) +
+    card('Fragmented', t.fragmented_sessions);
+
+  const h = ins.headlines;
+  const peaks = h.peak_hours.map(p => `${String(p.hour).padStart(2,'0')}:00`).join(', ') || '—';
+  document.getElementById('headlines').innerHTML =
+    `<span class="pill">Peak hours: <b>${peaks}</b></span>` +
+    `<span class="pill">Best day: <b>${h.best_day || '—'}</b></span>` +
+    `<span class="pill">Worst day: <b>${h.worst_day || '—'}</b></span>`;
+
+  document.getElementById('neglected').innerHTML = h.neglected_modes.length
+    ? '<b class="warn">Neglected vs target:</b><ul>' +
+      h.neglected_modes.map(n =>
+        `<li class="warn">${n.mode}: ${n.actual_weekly_hours} h/wk (target ${n.target_weekly_hours})</li>`).join('') + '</ul>'
+    : '<span>All modes at/near target.</span>';
+
+  bar(document.getElementById('hourChart'),
+      Object.keys(ins.by_hour), Object.values(ins.by_hour), 'min', '#6ea8fe');
+  bar(document.getElementById('weekdayChart'),
+      Object.keys(ins.by_weekday), Object.values(ins.by_weekday), 'min', '#63d2a4');
+  const modes = Object.keys(ins.by_mode);
+  bar(document.getElementById('modeChart'),
+      modes, modes.map(m => ins.by_mode[m].tracked_hours), 'h', '#c08cff');
+
+  const sessions = await j('/api/sessions?limit=100');
+  const tb = document.getElementById('sessions');
+  tb.innerHTML = '';
+  for (const s of sessions) {
+    const dur = ((s.end_ts - s.start_ts) / 60).toFixed(1);
+    const opts = MODES.map(m =>
+      `<option ${m === s.mode ? 'selected' : ''}>${m}</option>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${fmt(s.start_ts)}</td><td>${s.dominant_app}</td>` +
+      `<td><select data-id="${s.id}">${opts}</select></td>` +
+      `<td>${dur}</td><td>${s.quality_score}</td><td>${s.switch_count}</td>` +
+      `<td>${(s.idle_ratio * 100).toFixed(0)}%</td>`;
+    if (s.fragmented) tr.querySelector('td:nth-child(2)').classList.add('frag');
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      await j('/api/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: +sel.dataset.id, mode: sel.value })
+      });
+      load();  // rebuild applied server-side; refresh
+    });
+  });
+}
+load();
+</script>
+</body>
+</html>
