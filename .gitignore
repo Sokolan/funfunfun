@@ -7,6 +7,10 @@ venv/
 env/
 .pytest_cache/
 
+# PyInstaller build output
+/build/
+/dist/
+
 # Local data / config overrides
 *.db
 *.db-journal

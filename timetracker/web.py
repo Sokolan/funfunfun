@@ -10,19 +10,18 @@ Endpoints:
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
+from ._paths import bundle_root
 from .config import Config, load_config
 from .db import get_conn
 from .digest import build_digest_html
 from .insights import compute_insights
 from .sessionizer import rebuild_sessions
 
-_STATIC = Path(__file__).resolve().parent.parent / "static"
+_STATIC = bundle_root() / "static"
 
 
 class Feedback(BaseModel):

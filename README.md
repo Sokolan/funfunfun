@@ -9,7 +9,35 @@ modes) — not just "you worked 34 hours."
 Everything runs locally. Data lives in one SQLite file in your home dir
 (`~/.timetracker/activity.db`). Runs on **Windows, macOS, and Linux**.
 
-## Install
+## Windows .exe (no Python needed)
+
+A single `timetracker.exe` is built automatically on every push by GitHub
+Actions (Windows runner). Get it from:
+
+- **Actions tab** → latest `build-windows` run → **Artifacts** → `timetracker-windows`, or
+- a tagged **Release** (push a `v*` tag to attach the exe to a release).
+
+Then run it from a terminal exactly like the Python commands, e.g.:
+
+```bat
+timetracker.exe init-db
+timetracker.exe collect
+timetracker.exe serve
+```
+
+To edit settings next to the exe, drop a `config.local.toml` beside it.
+
+To build it yourself on a Windows machine:
+
+```bat
+pip install -r requirements.txt pyinstaller
+pyinstaller timetracker.spec --noconfirm
+:: result: dist\timetracker.exe
+```
+
+(PyInstaller is not a cross-compiler — a Windows exe must be built on Windows.)
+
+## Install (from source)
 
 ```bash
 python3 -m venv .venv

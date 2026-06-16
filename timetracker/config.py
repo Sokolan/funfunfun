@@ -16,10 +16,12 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # Python 3.10 and earlier
     import tomli as _toml  # type: ignore
 
-# Repo-shipped default config lives next to the package.
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG_PATH = _REPO_ROOT / "config.toml"
-LOCAL_CONFIG_PATH = _REPO_ROOT / "config.local.toml"
+from ._paths import app_dir, bundle_root
+
+# Shipped defaults travel with the package/exe; the local override lives next to
+# the exe (or repo root in dev) so users can edit it.
+DEFAULT_CONFIG_PATH = bundle_root() / "config.toml"
+LOCAL_CONFIG_PATH = app_dir() / "config.local.toml"
 
 
 @dataclass
