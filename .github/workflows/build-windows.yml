@@ -10,6 +10,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: write   # needed to publish the exe to a Release on tags
+
 jobs:
   build:
     runs-on: windows-latest
