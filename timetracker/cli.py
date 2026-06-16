@@ -117,6 +117,24 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
+def _find_free_port(host: str, start: int, attempts: int = 20) -> int:
+    """Return the first bindable port at/after `start`.
+
+    Guards against a stale older instance already holding the default port: we
+    pick a fresh one and open the browser there instead of silently colliding.
+    """
+    import socket
+    for port in range(start, start + attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind((host, port))
+                return port
+            except OSError:
+                continue
+    return start
+
+
 def _run_app(config, host: str, port: int, open_browser: bool = True,
              with_collector: bool = True) -> None:
     """All-in-one: DB + background collector + dashboard + open browser.
@@ -147,13 +165,16 @@ def _run_app(config, host: str, port: int, open_browser: bool = True,
             daemon=True,
         ).start()
 
-    url = f"http://{host}:{port}"
+    chosen = _find_free_port(host, port)
+    if chosen != port:
+        print(f"port {port} busy (another instance?) -> using {chosen}", flush=True)
+    url = f"http://{host}:{chosen}"
     if open_browser:
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
     print(f"timetracker running -> {url}")
     print("Leave this window open. Close it to stop tracking.", flush=True)
-    uvicorn.run(create_app(config), host=host, port=port, log_level="warning")
+    uvicorn.run(create_app(config), host=host, port=chosen, log_level="warning")
 
 
 def _seed_fake(config, days: int) -> None:
