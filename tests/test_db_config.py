@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from timetracker.config import _deep_merge, load_config
 from timetracker.db import get_conn, init_db
@@ -44,4 +45,5 @@ def test_load_config_override(tmp_path):
         '[collector]\npoll_seconds = 99\n[storage]\ndb_path = "/tmp/x.db"\n')
     cfg = load_config(override)
     assert cfg.poll_seconds == 99
-    assert str(cfg.db_path) == "/tmp/x.db"
+    # Compare as Path so the assertion is OS-agnostic (Windows uses backslashes).
+    assert cfg.db_path == Path("/tmp/x.db")
